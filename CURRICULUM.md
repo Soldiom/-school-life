@@ -12,7 +12,13 @@ School Life currently provides a versioned foundation pack for mathematics, read
 | Secondary learners | Grades 9–12 | Future Academy | 25 minutes |
 | University learners | University | University Commons | 30 minutes |
 
-The current challenge bank has 78 questions. Bus missions add 36 route-specific questions, and the six minigames contain their own learning rounds.
+The release includes parallel 78-question English and Arabic challenge banks. Bus missions add 36 route-specific questions per language, and the six minigames contain localized learning rounds.
+
+## Arabic learning experience
+
+Arabic mode uses Modern Standard Arabic and a true right-to-left interface. Its early literacy activities teach Arabic letters, sounds, familiar words, and spelling rather than translating English phonics exercises. Challenge prompts, choices, hints, explanations, objectives, minigames, missions, levels, rewards, settings, and read-aloud language are localized.
+
+The Arabic foundation pack is versioned as `arabic-global-foundations-v1` and marked `prototype-awaiting-expert-review`. Schools should review its language, progression, cultural context, accessibility, and standards alignment for their jurisdiction before classroom adoption.
 
 ## Transparent adaptation
 
@@ -32,7 +38,7 @@ The foundation pack is currently marked `prototype-awaiting-expert-review`. Befo
 
 - named subject and age-band reviewers;
 - curriculum-standard mappings by jurisdiction;
-- reading-level and accessibility review;
+- reading-level, Arabic-language, and accessibility review;
 - factual sources and attribution where needed;
 - bias and cultural-context review;
 - pilot evidence and a documented correction process; and

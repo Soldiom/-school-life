@@ -11,9 +11,9 @@ export default defineConfig({
       includeManifestIcons: false,
       manifest: {
         id: "./",
-        name: "School Life — Learning Adventures",
+        name: "School Life | الحياة المدرسية",
         short_name: "School Life",
-        description: "An adaptive learning world for preschool, school, and university learners.",
+        description: "A bilingual English and Arabic learning world for preschool, school, and university learners.",
         start_url: "./",
         scope: "./",
         display: "standalone",

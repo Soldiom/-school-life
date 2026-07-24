@@ -1,6 +1,6 @@
-# School Life
+# School Life | الحياة المدرسية
 
-An open-source learning world for preschool, kindergarten, Grades 1–12, and university learners.
+An open-source bilingual learning world in English and Arabic for preschool, kindergarten, Grades 1–12, and university learners.
 
 [![Quality checks](https://github.com/Soldiom/-school-life/actions/workflows/ci.yml/badge.svg)](https://github.com/Soldiom/-school-life/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/Soldiom/-school-life/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/Soldiom/-school-life/actions/workflows/deploy-pages.yml)
@@ -19,10 +19,12 @@ The app is installable and works offline after its first successful load.
 ## What works today
 
 - 15 selectable levels across five genuinely different age experiences
-- 78 adaptive mathematics, reading, and science questions
+- Instant English/Arabic switching with a true right-to-left Arabic interface
+- 78 adaptive mathematics, language/reading, and science questions in each language
+- Purpose-written Modern Standard Arabic literacy activities, hints, explanations, and read-aloud support
 - Transparent mastery updates based on the learner's latest result
 - Six complete educational minigames with multi-round play
-- 36 route- and age-specific questions across three school-bus missions
+- 36 route- and age-specific questions in each language across three school-bus missions
 - Fictional classmates with guided kindness actions and no open messaging
 - Bedroom and classroom decoration using rewards earned through learning
 - Real daily streak, weekly lesson goal, stars, coins, XP, and badges
@@ -60,6 +62,8 @@ npm run preview
 | --- | --- |
 | `src/App.tsx` | Product screens, local profile state, rewards, and accessibility settings |
 | `src/learning-engine.ts` | Age experiences, adaptive question selection, mastery, streaks, audio |
+| `src/arabic-content.ts` | Purpose-written Arabic curriculum across every age band |
+| `src/i18n.ts` | English/Arabic labels, localized product data, and locale helpers |
 | `src/content-packs.ts` | Versioned curriculum extensions and review metadata |
 | `src/minigames.tsx` | Six interactive educational game loops |
 | `src/bus-missions.ts` | Route-specific missions across three age groupings |
@@ -72,7 +76,7 @@ The app is a static React and TypeScript client built with Vite. Progress is sto
 
 ## Important boundaries
 
-This release is a polished open prototype, not an accredited curriculum or a hosted school information system. It currently has no teacher dashboard, cloud sync, real-user social network, payments, generative AI tutor, or institutional authentication. Seed learning content still requires independent subject-matter and local-curriculum review before formal classroom adoption.
+This release is a polished open prototype, not an accredited curriculum or a hosted school information system. It currently has no teacher dashboard, cloud sync, real-user social network, payments, generative AI tutor, or institutional authentication. English and Arabic seed learning content still requires independent subject-matter, linguistic, and local-curriculum review before formal classroom adoption.
 
 Read the project policies before deploying to children:
 

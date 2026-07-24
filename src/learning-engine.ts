@@ -1,4 +1,6 @@
+import { arabicQuestions } from "./arabic-content";
 import { questionExtensions } from "./content-packs";
+import { localizedExperience, type Locale } from "./i18n";
 import {
   ageBandFor,
   questions,
@@ -59,8 +61,8 @@ export const ageExperiences: Record<AgeBand, AgeExperience> = {
   },
 };
 
-export function experienceFor(level: string) {
-  return ageExperiences[ageBandFor(level)];
+export function experienceFor(level: string, locale: Locale = "en") {
+  return localizedExperience(ageExperiences[ageBandFor(level)], locale);
 }
 
 function stableHash(value: string) {
@@ -71,24 +73,28 @@ function stableHash(value: string) {
   return Math.abs(hash);
 }
 
-function normalizeQuestion(question: Question, index: number, band: AgeBand, subject: Subject): Question {
+function normalizeQuestion(question: Question, index: number, band: AgeBand, subject: Subject, locale: Locale): Question {
   return {
     ...question,
     id: question.id ?? `${band}-${subject}-core-${index + 1}`,
-    objective: question.objective ?? `Practice ${subject} reasoning for the ${band} learning band.`,
+    objective: question.objective ?? (locale === "ar"
+      ? "تدريب مهارات التفكير المناسبة للمرحلة التعليمية."
+      : `Practice ${subject} reasoning for the ${band} learning band.`),
     difficulty: question.difficulty ?? ((index % 3) + 1) as 1 | 2 | 3,
     explanation: question.explanation ?? question.hint,
   };
 }
 
-export function fullQuestionBank(level: string, subject: Subject) {
+export function fullQuestionBank(level: string, subject: Subject, locale: Locale = "en") {
   const band = ageBandFor(level);
-  return [...questions[band][subject], ...questionExtensions[band][subject]]
-    .map((question, index) => normalizeQuestion(question, index, band, subject));
+  const source = locale === "ar"
+    ? arabicQuestions[band][subject]
+    : [...questions[band][subject], ...questionExtensions[band][subject]];
+  return source.map((question, index) => normalizeQuestion(question, index, band, subject, locale));
 }
 
-export function adaptiveQuestionSet(level: string, subject: Subject, mastery: number, count = 5) {
-  const bank = fullQuestionBank(level, subject);
+export function adaptiveQuestionSet(level: string, subject: Subject, mastery: number, count = 5, locale: Locale = "en") {
+  const bank = fullQuestionBank(level, subject, locale);
   const targetDifficulty = mastery < 40 ? 1 : mastery < 75 ? 2 : 3;
   const ordered = [...bank].sort((left, right) => {
     const leftDistance = Math.abs((left.difficulty ?? 2) - targetDifficulty);
@@ -186,12 +192,12 @@ export function playFeedback(enabled: boolean, tone: "success" | "retry" | "rewa
   }
 }
 
-export function readAloud(text: string) {
+export function readAloud(text: string, locale: Locale = "en") {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
-  utterance.rate = 0.88;
+  utterance.lang = locale === "ar" ? "ar-KW" : "en-US";
+  utterance.rate = locale === "ar" ? 0.82 : 0.88;
   window.speechSynthesis.speak(utterance);
   return true;
 }

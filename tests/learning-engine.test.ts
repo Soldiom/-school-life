@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { missionFor, missionQuestionCount } from "../src/bus-missions";
+import { arabicMissionQuestionCount, missionFor, missionQuestionCount } from "../src/bus-missions";
 import {
   adaptiveQuestionSet,
   calculateMastery,
@@ -43,6 +43,30 @@ describe("curriculum content", () => {
       expect(question.difficulty).toBeGreaterThanOrEqual(1);
       expect(question.difficulty).toBeLessThanOrEqual(3);
     }
+  });
+
+  it("ships a complete, native Arabic curriculum for every learning band", () => {
+    const allQuestions = levels
+      .filter(([, , band], index, list) => list.findIndex((item) => item[2] === band) === index)
+      .flatMap(([level]) => subjects.flatMap((subject) => fullQuestionBank(level, subject, "ar")));
+
+    expect(allQuestions).toHaveLength(78);
+    expect(new Set(allQuestions.map((question) => question.id)).size).toBe(78);
+
+    for (const question of allQuestions) {
+      expect(question.id).toMatch(/^ar-/);
+      expect(question.prompt).toMatch(/[\u0600-\u06ff]/);
+      expect(question.hint).toMatch(/[\u0600-\u06ff]/);
+      expect(question.explanation).toMatch(/[\u0600-\u06ff]/);
+      expect(question.objective).toMatch(/[\u0600-\u06ff]/);
+      expect(question.answers.length).toBeGreaterThanOrEqual(3);
+      expect(question.correct).toBeGreaterThanOrEqual(0);
+      expect(question.correct).toBeLessThan(question.answers.length);
+      expect(new Set(question.answers).size).toBe(question.answers.length);
+    }
+
+    expect(experienceFor("preschool", "ar").world).toBe("حديقة الدهشة");
+    expect(adaptiveQuestionSet("grade5", "reading", 50, 5, "ar")).toHaveLength(5);
   });
 
   it("moves challenge selection toward the learner's current mastery", () => {
@@ -108,5 +132,13 @@ describe("bus missions", () => {
     const museum = missionFor("museum", "grade5").map((question) => question.prompt);
     const forest = missionFor("eco", "grade5").map((question) => question.prompt);
     expect(museum).not.toEqual(forest);
+  });
+
+  it("provides a complete Arabic mission set", () => {
+    expect(arabicMissionQuestionCount).toBe(36);
+    expect(missionFor("museum", "preschool", "ar")).toHaveLength(3);
+    expect(missionFor("eco", "grade5", "ar")).toHaveLength(4);
+    expect(missionFor("space", "university", "ar")).toHaveLength(5);
+    expect(missionFor("museum", "grade5", "ar")[0].prompt).toMatch(/[\u0600-\u06ff]/);
   });
 });

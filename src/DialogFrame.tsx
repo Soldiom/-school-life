@@ -14,10 +14,12 @@ export default function DialogFrame({
   children,
   onClose,
   label,
+  closeLabel = "Close dialog",
 }: {
   children: ReactNode;
   onClose: () => void;
   label: string;
+  closeLabel?: string;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
 
@@ -81,7 +83,7 @@ export default function DialogFrame({
         aria-label={label}
         tabIndex={-1}
       >
-        <button className="dialog-close" onClick={onClose} aria-label="Close dialog">
+        <button className="dialog-close" onClick={onClose} aria-label={closeLabel}>
           <X size={20} />
         </button>
         {children}
