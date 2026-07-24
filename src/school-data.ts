@@ -59,10 +59,14 @@ export function ageBandFor(id: string): AgeBand {
 }
 
 export type Question = {
+  id?: string;
   prompt: string;
   answers: string[];
   correct: number;
   hint: string;
+  explanation?: string;
+  objective?: string;
+  difficulty?: 1 | 2 | 3;
 };
 
 type QuestionBank = Record<AgeBand, Record<Subject, Question[]>>;

@@ -9,7 +9,6 @@ import {
   BusFront,
   Check,
   ChevronRight,
-  CircleHelp,
   Clock3,
   Coins,
   Crown,
@@ -38,6 +37,20 @@ import {
 } from "lucide-react";
 import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { missionFor } from "./bus-missions";
+import DialogFrame from "./DialogFrame";
+import {
+  adaptiveQuestionSet,
+  calculateMastery,
+  experienceFor,
+  localDateKey,
+  playFeedback,
+  readAloud,
+  recordLearningDay,
+  refreshDailyProgress,
+  startOfWeekKey,
+} from "./learning-engine";
+import GameDialog from "./minigames";
 import {
   ageBandFor,
   badges,
@@ -49,9 +62,7 @@ import {
   levelLabel,
   levels,
   navigation,
-  questions,
   subjects,
-  type Question,
   type RouteName,
   type Subject,
 } from "./school-data";
@@ -68,7 +79,10 @@ type PlayerState = {
   streak: number;
   energy: number;
   progress: Record<Subject, number>;
+  progressByLevel: Record<string, Record<Subject, number>>;
   subjectWins: Record<Subject, number>;
+  attempts: Record<Subject, number>;
+  correctAnswers: Record<Subject, number>;
   completedChallenges: number;
   completedGames: string[];
   completedBus: string[];
@@ -79,19 +93,26 @@ type PlayerState = {
   reducedMotion: boolean;
   highContrast: boolean;
   largerText: boolean;
+  lastActiveDate: string;
+  lastLearningDate: string;
+  weekKey: string;
+  weeklyLessons: number;
 };
 
 const initialPlayer: PlayerState = {
   name: "",
   level: "grade5",
   avatar: 0,
-  stars: 320,
-  coins: 180,
-  xp: 460,
-  streak: 7,
+  stars: 100,
+  coins: 80,
+  xp: 0,
+  streak: 0,
   energy: 5,
-  progress: { math: 48, reading: 62, science: 36 },
+  progress: { math: 0, reading: 0, science: 0 },
+  progressByLevel: {},
   subjectWins: { math: 0, reading: 0, science: 0 },
+  attempts: { math: 0, reading: 0, science: 0 },
+  correctAnswers: { math: 0, reading: 0, science: 0 },
   completedChallenges: 0,
   completedGames: [],
   completedBus: [],
@@ -102,7 +123,26 @@ const initialPlayer: PlayerState = {
   reducedMotion: false,
   highContrast: false,
   largerText: false,
+  lastActiveDate: localDateKey(),
+  lastLearningDate: "",
+  weekKey: startOfWeekKey(),
+  weeklyLessons: 0,
 };
+
+function restorePlayer(raw: string): PlayerState {
+  const parsed = JSON.parse(raw) as Partial<PlayerState> | null;
+  if (!parsed || typeof parsed !== "object") return initialPlayer;
+  return refreshDailyProgress({
+    ...initialPlayer,
+    ...parsed,
+    streak: parsed.lastLearningDate ? parsed.streak ?? 0 : 0,
+    progress: { ...initialPlayer.progress, ...parsed.progress },
+    progressByLevel: { ...initialPlayer.progressByLevel, ...parsed.progressByLevel },
+    subjectWins: { ...initialPlayer.subjectWins, ...parsed.subjectWins },
+    attempts: { ...initialPlayer.attempts, ...parsed.attempts },
+    correctAnswers: { ...initialPlayer.correctAnswers, ...parsed.correctAnswers },
+  });
+}
 
 type DialogState =
   | { type: "challenge"; subject: Subject }
@@ -158,6 +198,7 @@ function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar
   const [name, setName] = useState("");
   const [level, setLevel] = useState("grade5");
   const [avatar, setAvatar] = useState(0);
+  const experience = experienceFor(level);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -186,6 +227,11 @@ function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar
             <select id="learning-level" value={level} onChange={(event) => setLevel(event.target.value)}>
               {levels.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
             </select>
+            <div className="experience-preview" aria-live="polite">
+              <span>{experience.label}</span>
+              <strong>{experience.world}</strong>
+              <p>{experience.promise}</p>
+            </div>
 
             <fieldset className="avatar-picker">
               <legend>Pick your explorer</legend>
@@ -205,8 +251,8 @@ function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar
         </div>
         <div className="welcome-world-panel">
           <div className="welcome-world-copy">
-            <span className="live-chip"><span /> ENCHANTED CAMPUS</span>
-            <h2>One magical world.<br />A new depth at every age.</h2>
+            <span className="live-chip"><span /> {experience.world.toUpperCase()}</span>
+            <h2>One learning journey.<br />A distinct experience at every age.</h2>
           </div>
           <div className="welcome-subjects" aria-label="Learning areas">
             <span><strong>∑</strong> Mathematics</span>
@@ -220,27 +266,31 @@ function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar
 }
 
 function CampusView({ player, go, openChallenge }: { player: PlayerState; go: (route: RouteName) => void; openChallenge: (subject: Subject) => void }) {
+  const experience = experienceFor(player.level);
   const questItems = [
     { label: "Solve a math puzzle", complete: player.subjectWins.math > 0, subject: "math" as Subject },
     { label: "Read one story clue", complete: player.subjectWins.reading > 0, subject: "reading" as Subject },
     { label: "Visit the Science Dome", complete: player.subjectWins.science > 0, subject: "science" as Subject },
   ];
   const completed = questItems.filter((item) => item.complete).length;
+  const recommendedSubject = subjects.reduce((lowest, subject) =>
+    player.progress[subject.id] < player.progress[lowest.id] ? subject : lowest,
+  );
 
   return (
     <div className="page campus-page">
       <SectionHeading
-        eyebrow="MONDAY · ADVENTURE 08"
+        eyebrow={`TODAY · ${experience.label.toUpperCase()}`}
         title={`Welcome back, ${player.name}.`}
-        copy="Your campus is glowing. Choose where today’s adventure begins."
-        action={<button className="soft-button"><WandSparkles size={18} /> Surprise me</button>}
+        copy={experience.promise}
+        action={<button className="soft-button" onClick={() => openChallenge(recommendedSubject.id)}><WandSparkles size={18} /> Choose for me</button>}
       />
       <div className="campus-layout">
-        <section className="world-card" aria-label="Interactive Enchanted Campus map">
+        <section className="world-card" aria-label={`Interactive ${experience.world} map`}>
           <div className="world-shade" />
           <div className="world-topline">
-            <span><Sparkles size={16} /> Enchanted Campus</span>
-            <span className="weather-chip">Lavender skies · 22°</span>
+            <span><Sparkles size={16} /> {experience.world}</span>
+            <span className="weather-chip">{experience.sessionMinutes}-minute learning path</span>
           </div>
           {campusHotspots.map((spot) => (
             <button
@@ -310,9 +360,11 @@ function MapPinIcon() {
 }
 
 function ClassesView({ player, openChallenge }: { player: PlayerState; openChallenge: (subject: Subject) => void }) {
+  const experience = experienceFor(player.level);
+  const remaining = Math.max(0, 6 - player.weeklyLessons);
   return (
     <div className="page">
-      <SectionHeading eyebrow="LEARNING PATH" title="Classes that grow with you" copy={`Activities are adapted for ${levelLabel(player.level)}. Master a skill, earn rewards, and unlock the next chapter.`} action={<div className="goal-badge"><Target size={19} /><span><strong>Weekly goal</strong><small>3 of 6 lessons</small></span></div>} />
+      <SectionHeading eyebrow="LEARNING PATH" title="Classes that grow with you" copy={`Activities are adapted for ${levelLabel(player.level)}. Master a skill, earn rewards, and unlock the next chapter.`} action={<div className="goal-badge"><Target size={19} /><span><strong>Weekly goal</strong><small>{Math.min(player.weeklyLessons, 6)} of 6 lessons</small></span></div>} />
       <div className="subject-grid">
         {subjects.map((subject, index) => (
           <article className={`subject-card subject-${subject.color}`} key={subject.id}>
@@ -326,12 +378,12 @@ function ClassesView({ player, openChallenge }: { player: PlayerState; openChall
         ))}
       </div>
       <section className="lesson-board panel">
-        <div className="lesson-board-head"><div><p className="eyebrow">TODAY’S LEARNING TRAIL</p><h2>Small steps. Real progress.</h2></div><span className="time-estimate"><Clock3 size={17} /> About 22 minutes</span></div>
+        <div className="lesson-board-head"><div><p className="eyebrow">TODAY’S LEARNING TRAIL</p><h2>{remaining === 0 ? "Weekly goal complete!" : "Small steps. Real progress."}</h2></div><span className="time-estimate"><Clock3 size={17} /> About {experience.sessionMinutes} minutes</span></div>
         <div className="lesson-timeline">
           {subjects.map((subject, index) => (
             <button key={subject.id} onClick={() => openChallenge(subject.id)}>
               <span className={`timeline-node ${index === 0 ? "current" : ""}`}>{index === 0 ? <Play size={16} fill="currentColor" /> : index + 1}</span>
-              <span><small>{index === 0 ? "READY NOW" : `STEP ${index + 1}`}</small><strong>{subject.id === "math" ? "Reason with patterns" : subject.id === "reading" ? "Read between the lines" : "Test a fair experiment"}</strong><em>{subject.title} · 6–8 min</em></span>
+              <span><small>{index === 0 ? "READY NOW" : `STEP ${index + 1}`}</small><strong>{subject.id === "math" ? "Reason with patterns" : subject.id === "reading" ? "Read between the lines" : "Test a fair experiment"}</strong><em>{subject.title} · {Math.max(4, Math.round(experience.sessionMinutes / 3))} min</em></span>
               <ChevronRight size={18} />
             </button>
           ))}
@@ -372,7 +424,7 @@ function FriendsView({ player, onHighFive, openChallenge }: { player: PlayerStat
 function PlaygroundView({ player, openGame }: { player: PlayerState; openGame: (gameId: string) => void }) {
   return (
     <div className="page">
-      <SectionHeading eyebrow="PLAYGROUND ARCADE" title="Play with purpose" copy="Every minigame strengthens focus, language, logic, or scientific thinking—and rewards real effort." action={<div className="energy-badge"><Zap size={18} fill="currentColor" /><span><strong>{player.energy} energy</strong><small>Refills daily</small></span></div>} />
+      <SectionHeading eyebrow="PLAYGROUND ARCADE" title="Play with purpose" copy="Every minigame now has multiple rounds and adapts its challenge to your level. Play sparks never block a lesson." action={<div className="energy-badge"><Zap size={18} fill="currentColor" /><span><strong>{player.energy} play sparks</strong><small>Refill daily · no learning gates</small></span></div>} />
       <div className="games-grid">
         {games.map((game, index) => {
           const complete = player.completedGames.includes(game.id);
@@ -458,7 +510,7 @@ function BusView({ player, openBus }: { player: PlayerState; openBus: (routeId: 
 function RewardsView({ player, go }: { player: PlayerState; go: (route: RouteName) => void }) {
   const unlocked = {
     "first-step": player.completedChallenges > 0,
-    "math-mind": player.subjectWins.math >= 5,
+    "math-mind": player.correctAnswers.math >= 5,
     "book-bloom": player.subjectWins.reading > 0,
     "lab-light": player.subjectWins.science > 0,
     "kind-friend": player.highFives >= 3,
@@ -502,7 +554,7 @@ function ProfileView({ player, update, reset }: { player: PlayerState; update: (
       <div className="profile-layout">
         <section className="profile-identity panel">
           <div className="profile-glow" /><Avatar index={player.avatar} label={player.name} /><h2>{player.name}</h2><p>{levelLabel(player.level)}</p><span className="profile-title"><Award size={15} /> Curious Pathfinder</span>
-          <label htmlFor="profile-level">Learning level</label><select id="profile-level" value={player.level} onChange={(event) => update({ level: event.target.value })}>{levels.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          <label htmlFor="profile-level">Learning level</label><select id="profile-level" value={player.level} onChange={(event) => { const nextLevel = event.target.value; update({ level: nextLevel, progress: player.progressByLevel[nextLevel] ?? { math: 0, reading: 0, science: 0 }, progressByLevel: { ...player.progressByLevel, [player.level]: player.progress } }); }}>{levels.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         </section>
         <div className="profile-main">
           <section className="stat-grid">{stats.map(({ label, value, icon: Icon }) => <article key={label}><Icon size={20} /><strong>{value}</strong><span>{label}</span></article>)}</section>
@@ -525,8 +577,22 @@ function SettingToggle({ icon: Icon, title, copy, checked, onChange }: { icon: t
   return <button type="button" className="setting-row" onClick={onChange} aria-pressed={checked}><span className="setting-icon"><Icon size={19} /></span><span><strong>{title}</strong><small>{copy}</small></span><i className={`switch ${checked ? "on" : ""}`}><b /></i></button>;
 }
 
-function ChallengeDialog({ subject, level, onClose, onComplete }: { subject: Subject; level: string; onClose: () => void; onComplete: (subject: Subject, score: number) => void }) {
-  const bank = questions[ageBandFor(level)][subject];
+function ChallengeDialog({
+  subject,
+  level,
+  mastery,
+  sound,
+  onClose,
+  onComplete,
+}: {
+  subject: Subject;
+  level: string;
+  mastery: number;
+  sound: boolean;
+  onClose: () => void;
+  onComplete: (subject: Subject, score: number, total: number) => void;
+}) {
+  const [bank] = useState(() => adaptiveQuestionSet(level, subject, mastery));
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
@@ -538,104 +604,50 @@ function ChallengeDialog({ subject, level, onClose, onComplete }: { subject: Sub
   const choose = (answerIndex: number) => {
     if (selected !== null) return;
     setSelected(answerIndex);
-    if (answerIndex === question.correct) setScore((value) => value + 1);
+    const correct = answerIndex === question.correct;
+    if (correct) setScore((value) => value + 1);
+    playFeedback(sound, correct ? "success" : "retry");
   };
   const next = () => {
     if (index === bank.length - 1) { setFinished(true); return; }
     setIndex((value) => value + 1); setSelected(null); setShowHint(false);
   };
-  if (finished) return <CompletionCard title={`${label.title} spark collected!`} copy={`You answered ${score} of ${bank.length} correctly. Every attempt strengthens your path.`} reward={50 + score * 10} icon={label.icon} onClose={onClose} onCollect={() => onComplete(subject, score)} />;
+  if (finished) return <CompletionCard title={`${label.title} spark collected!`} copy={`You answered ${score} of ${bank.length} correctly. Your next lesson will adapt to this result.`} reward={50 + score * 10} icon={label.icon} onClose={onClose} onCollect={() => onComplete(subject, score, bank.length)} />;
 
   return (
     <DialogFrame onClose={onClose} label={`${label.title} challenge`}>
       <div className={`challenge-head challenge-${label.color}`}><span className="challenge-icon">{label.icon}</span><div><p className="eyebrow">{label.place.toUpperCase()}</p><h2>{label.title} challenge</h2><p>{levelLabel(level)} · Question {index + 1} of {bank.length}</p></div><span className="challenge-stars"><Star size={15} fill="currentColor" /> +{50 + score * 10}</span></div>
       <div className="challenge-progress"><span style={{ width: `${((index + 1) / bank.length) * 100}%` }} /></div>
-      <div className="question-area"><p className="question-number">QUESTION {String(index + 1).padStart(2, "0")}</p><h3>{question.prompt}</h3><div className="answer-grid">{question.answers.map((answer, answerIndex) => {
+      <div className="question-area"><p className="question-number">QUESTION {String(index + 1).padStart(2, "0")} · {question.objective}</p><h3>{question.prompt}</h3><div className="answer-grid">{question.answers.map((answer, answerIndex) => {
         let className = "";
         if (selected !== null && answerIndex === question.correct) className = "correct";
         else if (selected === answerIndex) className = "incorrect";
         return <button key={answer} className={className} onClick={() => choose(answerIndex)} disabled={selected !== null}><span>{String.fromCharCode(65 + answerIndex)}</span>{answer}{className === "correct" && <Check size={18} />}{className === "incorrect" && <X size={18} />}</button>;
       })}</div>
-      {selected === null ? <button className="hint-button" onClick={() => setShowHint(!showHint)}><Lightbulb size={16} /> {showHint ? question.hint : "Show a hint"}</button> : <div className={`feedback-box ${selected === question.correct ? "success" : "retry"}`}><span>{selected === question.correct ? <Check size={19} /> : <Lightbulb size={19} />}</span><div><strong>{selected === question.correct ? "Beautiful thinking!" : "Good try—this is how we learn."}</strong><p>{selected === question.correct ? "You found the best answer." : question.hint}</p></div><button onClick={next}>{index === bank.length - 1 ? "See results" : "Next"} <ArrowRight size={16} /></button></div>}
+      {selected === null ? <div className="question-tools"><button className="hint-button" onClick={() => setShowHint(!showHint)}><Lightbulb size={16} /> {showHint ? question.hint : "Show a hint"}</button><button className="hint-button" onClick={() => readAloud(`${question.prompt}. ${question.answers.join(". ")}`)}><Volume2 size={16} /> Read aloud</button></div> : <div className={`feedback-box ${selected === question.correct ? "success" : "retry"}`} role="status"><span>{selected === question.correct ? <Check size={19} /> : <Lightbulb size={19} />}</span><div><strong>{selected === question.correct ? "Strong thinking!" : "Good try—this is how we learn."}</strong><p>{selected === question.correct ? question.explanation ?? question.hint : question.hint}</p></div><button onClick={next}>{index === bank.length - 1 ? "See results" : "Next"} <ArrowRight size={16} /></button></div>}
       </div>
     </DialogFrame>
   );
 }
 
-const gameQuestions: Record<string, Question> = {
-  numbers: { prompt: "The cloud train has 6 carriages with 4 stars each. How many stars?", answers: ["10", "20", "24", "28"], correct: 2, hint: "Think 6 groups of 4." },
-  words: { prompt: "Which word repairs the sentence: ‘The curious fox ___ over the log’ ?", answers: ["jumped", "purple", "quietlyness", "book"], correct: 0, hint: "Choose the action word that completes the idea." },
-  patterns: { prompt: "What comes next?  ▲  ●  ▲  ●  ▲  ...", answers: ["▲", "●", "■", "◆"], correct: 1, hint: "The two shapes take turns." },
-  story: { prompt: "A tiny dragon finds a lost library card. What is the kindest next step?", answers: ["Hide it", "Return it to the librarian", "Throw it away", "Keep it forever"], correct: 1, hint: "Choose the action that helps its owner." },
-  science: { prompt: "A seedling near the window grows faster. What should we test?", answers: ["Whether light affects growth", "Whether books are heavy", "Whether pencils roll", "Whether clocks tick"], correct: 0, hint: "Connect the window with what plants need." },
-};
-
-function GameDialog({ gameId, onClose, onComplete }: { gameId: string; onClose: () => void; onComplete: (gameId: string, reward: number) => void }) {
-  const game = games.find((item) => item.id === gameId)!;
-  if (gameId === "memory") return <MemoryGame gameId={gameId} reward={game.reward} onClose={onClose} onComplete={onComplete} />;
-  return <QuickGame game={game} question={gameQuestions[gameId]} onClose={onClose} onComplete={onComplete} />;
-}
-
-function QuickGame({ game, question, onClose, onComplete }: { game: typeof games[number]; question: Question; onClose: () => void; onComplete: (id: string, reward: number) => void }) {
-  const [selected, setSelected] = useState<number | null>(null);
-  const success = selected === question.correct;
-  return <DialogFrame onClose={onClose} label={game.title}><div className={`game-dialog-head game-${game.color}`}><span>{game.icon}</span><div><p className="eyebrow">{game.eyebrow}</p><h2>{game.title}</h2><p>One quick round · +{game.reward} stars</p></div></div><div className="question-area game-question"><h3>{question.prompt}</h3><div className="answer-grid">{question.answers.map((answer, index) => <button key={answer} className={selected !== null ? index === question.correct ? "correct" : index === selected ? "incorrect" : "" : ""} onClick={() => setSelected(index)} disabled={success}><span>{String.fromCharCode(65 + index)}</span>{answer}</button>)}</div>{selected !== null && <div className={`feedback-box ${success ? "success" : "retry"}`}><span>{success ? <Check size={19} /> : <Lightbulb size={19} />}</span><div><strong>{success ? "You unlocked the path!" : "Try another choice"}</strong><p>{success ? "Great thinking and great play." : question.hint}</p></div>{success && <button onClick={() => onComplete(game.id, game.reward)}>Collect <Star size={15} /></button>}</div>}</div></DialogFrame>;
-}
-
-function MemoryGame({ gameId, reward, onClose, onComplete }: { gameId: string; reward: number; onClose: () => void; onComplete: (id: string, reward: number) => void }) {
-  const [deck] = useState(() => ["★", "☾", "⚗", "★", "☾", "⚗"].map((value, index) => ({ value, key: `${value}-${index}` })).sort(() => Math.random() - 0.5));
-  const [open, setOpen] = useState<number[]>([]);
-  const [matched, setMatched] = useState<number[]>([]);
-  const [locked, setLocked] = useState(false);
-  useEffect(() => {
-    if (open.length !== 2) return;
-    const [first, second] = open;
-    const timer = window.setTimeout(() => {
-      if (deck[first].value === deck[second].value) setMatched((items) => [...items, first, second]);
-      setOpen([]);
-      setLocked(false);
-    }, 650);
-    return () => window.clearTimeout(timer);
-  }, [deck, open]);
-  const choose = (index: number) => {
-    if (locked || open.includes(index) || matched.includes(index)) return;
-    if (open.length === 0) { setOpen([index]); return; }
-    setOpen([open[0], index]);
-    setLocked(true);
-  };
-  const complete = matched.length === deck.length;
-  return <DialogFrame onClose={onClose} label="Memory Meadow"><div className="game-dialog-head game-violet"><span>✦</span><div><p className="eyebrow">FOCUS</p><h2>Memory Meadow</h2><p>Match the three magical pairs</p></div></div><div className="memory-area"><div className="memory-grid">{deck.map((card, index) => { const visible = open.includes(index) || matched.includes(index); return <button key={card.key} onClick={() => choose(index)} className={`${visible ? "open" : ""} ${matched.includes(index) ? "matched" : ""}`} aria-label={visible ? card.value : "Hidden card"}><span className="card-back"><Sparkles size={22} /></span><span className="card-face">{card.value}</span></button>; })}</div>{complete ? <button className="primary-button collect-button" onClick={() => onComplete(gameId, reward)}>Collect {reward} stars <Star size={16} fill="currentColor" /></button> : <p><CircleHelp size={16} /> Find all pairs to win your stars.</p>}</div></DialogFrame>;
-}
-
-const missionSteps: Question[] = [
-  { prompt: "Stop 1: The bus leaves at 9:15 and travels for 35 minutes. When does it arrive?", answers: ["9:40", "9:50", "10:00"], correct: 1, hint: "Add 30 minutes, then 5 more." },
-  { prompt: "Stop 2: Which clue is the most reliable evidence?", answers: ["A guess", "A labelled observation made twice", "A rumour"], correct: 1, hint: "Reliable evidence can be checked and repeated." },
-  { prompt: "Final stop: A sign says ‘Protect the path so everyone can explore.’ What should we do?", answers: ["Leave no litter", "Pick the flowers", "Block the path"], correct: 0, hint: "Choose the action that protects the shared place." },
-];
-
-function BusDialog({ routeId, onClose, onComplete }: { routeId: string; onClose: () => void; onComplete: (routeId: string, reward: number) => void }) {
+function BusDialog({ routeId, level, sound, onClose, onComplete }: { routeId: string; level: string; sound: boolean; onClose: () => void; onComplete: (routeId: string, reward: number) => void }) {
   const route = busRoutes.find((item) => item.id === routeId)!;
+  const [missionSteps] = useState(() => missionFor(routeId, level));
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const question = missionSteps[step];
   const success = selected === question.correct;
+  const choose = (answer: number) => {
+    if (selected !== null) return;
+    setSelected(answer);
+    playFeedback(sound, answer === question.correct ? "success" : "retry");
+  };
   const next = () => { if (step === missionSteps.length - 1) { onComplete(route.id, route.reward); return; } setStep((value) => value + 1); setSelected(null); };
-  return <DialogFrame onClose={onClose} label={`${route.title} bus mission`}><div className="mission-head"><div className="mini-bus"><BusFront size={26} /></div><div><p className="eyebrow">STARLINER MISSION · STOP {step + 1}</p><h2>{route.title}</h2><p>{route.location}</p></div><span><Star size={15} fill="currentColor" /> +{route.reward}</span></div><div className="mission-route">{missionSteps.map((_, index) => <span className={index < step ? "done" : index === step ? "current" : ""} key={index}>{index < step ? <Check size={14} /> : index + 1}</span>)}</div><div className="question-area"><h3>{question.prompt}</h3><div className="answer-grid">{question.answers.map((answer, index) => <button key={answer} className={selected !== null ? index === question.correct ? "correct" : index === selected ? "incorrect" : "" : ""} onClick={() => setSelected(index)} disabled={success}><span>{String.fromCharCode(65 + index)}</span>{answer}</button>)}</div>{selected !== null && <div className={`feedback-box ${success ? "success" : "retry"}`}><span>{success ? <Check size={19} /> : <Lightbulb size={19} />}</span><div><strong>{success ? "Route cleared!" : "Check the clue again"}</strong><p>{success ? "The Starliner can continue." : question.hint}</p></div>{success && <button onClick={next}>{step === missionSteps.length - 1 ? "Finish mission" : "Next stop"} <ArrowRight size={15} /></button>}</div>}</div></DialogFrame>;
+  return <DialogFrame onClose={onClose} label={`${route.title} bus mission`}><div className="mission-head"><div className="mini-bus"><BusFront size={26} /></div><div><p className="eyebrow">STARLINER MISSION · STOP {step + 1}</p><h2>{route.title}</h2><p>{route.location} · {levelLabel(level)}</p></div><span><Star size={15} fill="currentColor" /> +{route.reward}</span></div><div className="mission-route">{missionSteps.map((_, index) => <span className={index < step ? "done" : index === step ? "current" : ""} key={index}>{index < step ? <Check size={14} /> : index + 1}</span>)}</div><div className="question-area"><h3>{question.prompt}</h3><div className="answer-grid">{question.answers.map((answer, index) => <button key={answer} className={selected !== null ? index === question.correct ? "correct" : index === selected ? "incorrect" : "" : ""} onClick={() => choose(index)} disabled={selected !== null}><span>{String.fromCharCode(65 + index)}</span>{answer}</button>)}</div>{selected !== null && <div className={`feedback-box ${success ? "success" : "retry"}`} role="status"><span>{success ? <Check size={19} /> : <Lightbulb size={19} />}</span><div><strong>{success ? "Route cleared!" : "Check the clue and try again."}</strong><p>{success ? question.explanation ?? "The Starliner can continue." : question.hint}</p></div><button onClick={success ? next : () => setSelected(null)}>{success ? step === missionSteps.length - 1 ? "Finish mission" : "Next stop" : "Try again"} <ArrowRight size={15} /></button></div>}</div></DialogFrame>;
 }
 
 function CompletionCard({ title, copy, reward, icon, onClose, onCollect }: { title: string; copy: string; reward: number; icon: string; onClose: () => void; onCollect: () => void }) {
   return <DialogFrame onClose={onClose} label="Challenge complete"><div className="completion-card"><div className="completion-rays" aria-hidden="true" /><span className="completion-medal">{icon}</span><p className="eyebrow">CHALLENGE COMPLETE</p><h2>{title}</h2><p>{copy}</p><div className="reward-ticket"><Star size={21} fill="currentColor" /><strong>+{reward} stars</strong><span>and 60 XP</span></div><button className="primary-button" onClick={onCollect}>Collect reward <Gift size={17} /></button></div></DialogFrame>;
-}
-
-function DialogFrame({ children, onClose, label }: { children: React.ReactNode; onClose: () => void; label: string }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", closeOnEscape);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.removeEventListener("keydown", closeOnEscape); document.body.style.overflow = previousOverflow; };
-  }, [onClose]);
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="dialog" role="dialog" aria-modal="true" aria-label={label}><button className="dialog-close" onClick={onClose} aria-label="Close"><X size={20} /></button>{children}</section></div>;
 }
 
 export default function SchoolLife() {
@@ -647,12 +659,13 @@ export default function SchoolLife() {
   const [room, setRoom] = useState<"bedroom" | "classroom">("bedroom");
   const [toast, setToast] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
-        if (saved) { setPlayer({ ...initialPlayer, ...JSON.parse(saved) as PlayerState }); setHasProfile(true); }
+        if (saved) { setPlayer(restorePlayer(saved)); setHasProfile(true); }
       } catch { /* Local storage can be unavailable in private contexts. */ }
       setHydrated(true);
     }, 0);
@@ -665,10 +678,22 @@ export default function SchoolLife() {
   }, [player, hydrated, hasProfile]);
 
   useEffect(() => {
+    const updateConnection = () => setOnline(navigator.onLine);
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+    };
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dataset.contrast = player.highContrast ? "high" : "standard";
     document.documentElement.dataset.motion = player.reducedMotion ? "reduced" : "full";
     document.documentElement.dataset.text = player.largerText ? "large" : "standard";
-  }, [player.highContrast, player.reducedMotion, player.largerText]);
+    document.documentElement.dataset.age = ageBandFor(player.level);
+    document.documentElement.dataset.learningText = experienceFor(player.level).textScale;
+  }, [player.highContrast, player.reducedMotion, player.largerText, player.level]);
 
   useEffect(() => {
     if (!toast) return;
@@ -682,18 +707,23 @@ export default function SchoolLife() {
   const go = (nextRoute: RouteName) => { setRoute(nextRoute); setMobileMenu(false); window.scrollTo({ top: 0, behavior: player.reducedMotion ? "auto" : "smooth" }); };
 
   const start = (name: string, level: string, avatar: number) => {
-    const next = { ...initialPlayer, name, level, avatar };
-    setPlayer(next); setHasProfile(true); showToast(`Welcome to Enchanted Campus, ${name}!`);
+    const next = refreshDailyProgress({ ...initialPlayer, name, level, avatar });
+    setPlayer(next); setHasProfile(true); showToast(`Welcome to ${experienceFor(level).world}, ${name}!`);
   };
 
-  const completeChallenge = (subject: Subject, score: number) => {
+  const completeChallenge = (subject: Subject, score: number, total: number) => {
     const reward = 50 + score * 10;
-    setPlayer((current) => ({ ...current, stars: current.stars + reward, coins: current.coins + 20, xp: current.xp + 60, energy: Math.max(0, current.energy - 1), completedChallenges: current.completedChallenges + 1, progress: { ...current.progress, [subject]: Math.min(100, current.progress[subject] + 7 + score * 2) }, subjectWins: { ...current.subjectWins, [subject]: current.subjectWins[subject] + 1 } }));
+    playFeedback(player.sound, "reward");
+    setPlayer((current) => {
+      const learningState = recordLearningDay(current);
+      const progress = { ...current.progress, [subject]: calculateMastery(current.progress[subject], score, total) };
+      return { ...learningState, stars: current.stars + reward, coins: current.coins + 20, xp: current.xp + 60, completedChallenges: current.completedChallenges + 1, weeklyLessons: current.weeklyLessons + 1, progress, progressByLevel: { ...current.progressByLevel, [current.level]: progress }, subjectWins: { ...current.subjectWins, [subject]: current.subjectWins[subject] + 1 }, attempts: { ...current.attempts, [subject]: current.attempts[subject] + total }, correctAnswers: { ...current.correctAnswers, [subject]: current.correctAnswers[subject] + score } };
+    });
     setDialog(null); showToast(`+${reward} stars · ${subjects.find((item) => item.id === subject)?.title} mastery grew!`);
   };
 
   const completeGame = (gameId: string, reward: number) => {
-    setPlayer((current) => ({ ...current, stars: current.stars + reward, coins: current.coins + 10, xp: current.xp + 35, completedGames: current.completedGames.includes(gameId) ? current.completedGames : [...current.completedGames, gameId] }));
+    setPlayer((current) => ({ ...current, stars: current.stars + reward, coins: current.coins + 10, xp: current.xp + 35, energy: Math.max(0, current.energy - 1), completedGames: current.completedGames.includes(gameId) ? current.completedGames : [...current.completedGames, gameId] }));
     setDialog(null); showToast(`Play reward collected · +${reward} stars`);
   };
 
@@ -718,7 +748,8 @@ export default function SchoolLife() {
   };
 
   const reset = () => {
-    window.localStorage.removeItem(STORAGE_KEY); setPlayer(initialPlayer); setHasProfile(false); setRoute("campus"); showToast("Ready for a new explorer");
+    try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* The in-memory reset still works. */ }
+    setPlayer(initialPlayer); setHasProfile(false); setRoute("campus"); showToast("Ready for a new explorer");
   };
 
   const page = (() => {
@@ -732,7 +763,8 @@ export default function SchoolLife() {
     return <ProfileView player={player} update={updatePlayer} reset={reset} />;
   })();
 
-  if (!hasProfile) return <><Onboarding onStart={start} />{toast && <div className="toast"><Sparkles size={17} />{toast}</div>}</>;
+  if (!hydrated) return <div className="boot-screen"><Brand /><span className="boot-spinner" /><p>Preparing your learning world…</p></div>;
+  if (!hasProfile) return <><Onboarding onStart={start} />{toast && <div className="toast" role="status"><Sparkles size={17} />{toast}</div>}</>;
 
   return (
     <div className="app-shell">
@@ -744,7 +776,7 @@ export default function SchoolLife() {
           {navigation.map(({ id, label, icon: Icon }) => <button key={id} className={route === id ? "active" : ""} onClick={() => go(id)}><Icon size={19} strokeWidth={2.1} /><span>{label}</span>{route === id && <i />}</button>)}
         </nav>
         <div className="sidebar-bottom">
-          <div className="weekly-card"><ProgressRing value={50}><strong>3</strong><small>/ 6</small></ProgressRing><span><strong>Weekly goal</strong><small>Three lessons to go</small></span></div>
+          <div className="weekly-card"><ProgressRing value={Math.min(100, player.weeklyLessons / 6 * 100)}><strong>{Math.min(player.weeklyLessons, 6)}</strong><small>/ 6</small></ProgressRing><span><strong>Weekly goal</strong><small>{player.weeklyLessons >= 6 ? "Goal complete" : `${6 - player.weeklyLessons} lessons to go`}</small></span></div>
           <button className={`profile-chip ${route === "profile" ? "active" : ""}`} onClick={() => go("profile")}><Avatar index={player.avatar} label={player.name} small /><span><strong>{player.name}</strong><small>{levelLabel(player.level)}</small></span><Settings size={16} /></button>
         </div>
       </aside>
@@ -753,12 +785,12 @@ export default function SchoolLife() {
         <header className="topbar">
           <button className="mobile-menu-button" onClick={() => setMobileMenu(true)} aria-label="Open navigation"><Menu size={21} /></button>
           <button className="mobile-brand-button" onClick={() => go("campus")} aria-label="School Life home"><Brand compact /></button>
-          <div className="school-status"><span /><p><strong>Enchanted Campus</strong><small>School day · All paths open</small></p></div>
+          <div className={`school-status ${online ? "" : "offline"}`}><span /><p><strong>{experienceFor(player.level).world}</strong><small>{online ? "School day · All paths open" : "Offline mode · Progress stays here"}</small></p></div>
           <div className="resources" aria-label="Your resources">
             <button onClick={() => go("rewards")} title="Stars"><Star size={18} fill="currentColor" /><strong>{player.stars.toLocaleString()}</strong><small>stars</small></button>
             <button onClick={() => go("spaces")} title="School coins"><Coins size={18} /><strong>{player.coins}</strong><small>coins</small></button>
             <button onClick={() => go("rewards")} title="Learning streak"><Flame size={18} fill="currentColor" /><strong>{player.streak}</strong><small>day streak</small></button>
-            <button className="heart-resource" title="Energy"><Heart size={18} fill="currentColor" /><strong>{player.energy}</strong><small>energy</small></button>
+            <button className="heart-resource" title="Play sparks never block learning"><Heart size={18} fill="currentColor" /><strong>{player.energy}</strong><small>play sparks</small></button>
           </div>
           <button className="top-icon-button" onClick={() => showToast("You’re all caught up!")} aria-label="Notifications"><Bell size={19} /><span /></button>
         </header>
@@ -768,9 +800,9 @@ export default function SchoolLife() {
           <button className={route === "profile" ? "active" : ""} onClick={() => go("profile")}><Avatar index={player.avatar} label={player.name} small /><small>Me</small></button>
         </nav>
       </div>
-      {dialog?.type === "challenge" && <ChallengeDialog subject={dialog.subject} level={player.level} onClose={() => setDialog(null)} onComplete={completeChallenge} />}
-      {dialog?.type === "game" && <GameDialog gameId={dialog.gameId} onClose={() => setDialog(null)} onComplete={completeGame} />}
-      {dialog?.type === "bus" && <BusDialog routeId={dialog.routeId} onClose={() => setDialog(null)} onComplete={completeBus} />}
+      {dialog?.type === "challenge" && <ChallengeDialog subject={dialog.subject} level={player.level} mastery={player.progress[dialog.subject]} sound={player.sound} onClose={() => setDialog(null)} onComplete={completeChallenge} />}
+      {dialog?.type === "game" && <GameDialog gameId={dialog.gameId} level={player.level} sound={player.sound} onClose={() => setDialog(null)} onComplete={completeGame} />}
+      {dialog?.type === "bus" && <BusDialog routeId={dialog.routeId} level={player.level} sound={player.sound} onClose={() => setDialog(null)} onComplete={completeBus} />}
       {toast && <div className="toast" role="status"><Sparkles size={17} />{toast}</div>}
     </div>
   );

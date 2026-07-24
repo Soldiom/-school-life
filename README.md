@@ -1,55 +1,92 @@
-# School Life — Enchanted Campus
+# School Life
 
-An interactive learning world for preschool, kindergarten, Grades 1–12, and university learners.
+An open-source learning world for preschool, kindergarten, Grades 1–12, and university learners.
 
-![School Life Enchanted Campus](public/enchanted-campus.webp)
+[![Quality checks](https://github.com/Soldiom/-school-life/actions/workflows/ci.yml/badge.svg)](https://github.com/Soldiom/-school-life/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/Soldiom/-school-life/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/Soldiom/-school-life/actions/workflows/deploy-pages.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-286b72.svg)](LICENSE)
 
-## GitHub Pages
+![School Life learning world](public/enchanted-campus.webp)
 
-After GitHub Pages is enabled for this repository, the platform is available at:
+## Live app
+
+Once GitHub Pages is enabled, the production site is:
 
 **https://soldiom.github.io/-school-life/**
 
-Every push to `main` is built and deployed automatically by `.github/workflows/deploy-pages.yml`.
+The app is installable and works offline after its first successful load.
 
-## Included
+## What works today
 
-- Fifteen selectable learning levels from preschool through university
-- Adaptive mathematics, reading, and science challenges
-- Six educational minigames
-- Safe fictional classmates and guided kindness actions
-- Bedroom and classroom decoration
-- Three multi-stop school-bus missions
-- Stars, coins, XP, mastery, streaks, energy, quests, and badges
-- Local browser persistence without requiring an account
-- Mobile, tablet, and desktop layouts
-- High-contrast, larger-text, and reduced-motion controls
-- A documented GitHub and Hugging Face integration roadmap
+- 15 selectable levels across five genuinely different age experiences
+- 78 adaptive mathematics, reading, and science questions
+- Transparent mastery updates based on the learner's latest result
+- Six complete educational minigames with multi-round play
+- 36 route- and age-specific questions across three school-bus missions
+- Fictional classmates with guided kindness actions and no open messaging
+- Bedroom and classroom decoration using rewards earned through learning
+- Real daily streak, weekly lesson goal, stars, coins, XP, and badges
+- Local read-aloud, sound controls, high contrast, larger text, reduced motion, keyboard dialogs, and responsive layouts
+- Private on-device profiles with no account, advertising, analytics, or remote learner database
+- Offline Progressive Web App support
 
 ## Run locally
 
+Requirements: Node.js 22 or newer.
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Build and verify:
+Run the same release checks used in CI:
 
 ```bash
+npm run check
+```
+
+Individual commands:
+
+```bash
+npm run typecheck
 npm test
+npm run build
+npm run preview
 ```
 
-## Project structure
+## Architecture
 
-```text
-src/App.tsx                Product screens, state, games, and missions
-src/school-data.ts         Levels, question banks, friends, and rewards
-src/styles.css             Enchanted Campus design system
-public/                    Campus artwork, icon, and web manifest
-.github/workflows/         Automatic GitHub Pages deployment
-OPEN_SOURCE_FOUNDATIONS.md GitHub and Hugging Face integration map
-```
+| Path | Responsibility |
+| --- | --- |
+| `src/App.tsx` | Product screens, local profile state, rewards, and accessibility settings |
+| `src/learning-engine.ts` | Age experiences, adaptive question selection, mastery, streaks, audio |
+| `src/content-packs.ts` | Versioned curriculum extensions and review metadata |
+| `src/minigames.tsx` | Six interactive educational game loops |
+| `src/bus-missions.ts` | Route-specific missions across three age groupings |
+| `src/DialogFrame.tsx` | Accessible modal focus management |
+| `src/school-data.ts` | Core levels, subjects, world data, and starter questions |
+| `src/styles.css` | Responsive design system and age-specific themes |
+| `tests/` | Curriculum, progression, and mission validation |
 
-## Safety boundary
+The app is a static React and TypeScript client built with Vite. Progress is stored under `school-life-enchanted-v1` in browser local storage. The service worker precaches the production shell and assets.
 
-The current social layer uses fictional classmates and predefined positive actions. A production child-facing launch still requires verified guardian or school groups, moderation and reporting, curriculum review, privacy review, security testing, and human accessibility testing.
+## Important boundaries
+
+This release is a polished open prototype, not an accredited curriculum or a hosted school information system. It currently has no teacher dashboard, cloud sync, real-user social network, payments, generative AI tutor, or institutional authentication. Seed learning content still requires independent subject-matter and local-curriculum review before formal classroom adoption.
+
+Read the project policies before deploying to children:
+
+- [Curriculum model](CURRICULUM.md)
+- [Privacy](PRIVACY.md)
+- [Child safety](SAFETY.md)
+- [Security](SECURITY.md)
+- [Open-source and Hugging Face foundation map](OPEN_SOURCE_FOUNDATIONS.md)
+- [Contributing](CONTRIBUTING.md)
+
+## Deployment
+
+Every push to `main` runs quality checks and deploys `dist/` through `.github/workflows/deploy-pages.yml`. In the GitHub repository, configure **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+## License
+
+School Life is available under the [MIT License](LICENSE).

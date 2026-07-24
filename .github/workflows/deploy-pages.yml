@@ -27,8 +27,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Build static website
-        run: npm run build
+      - name: Verify and build static website
+        run: npm run check
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
       - name: Upload website artifact
