@@ -65,6 +65,15 @@ import {
   refreshDailyProgress,
   startOfWeekKey,
 } from "./learning-engine";
+import {
+  goalFor,
+  isGoalId,
+  localizedGoals,
+  progressForGoal,
+  recommendedSubjectForGoal,
+  type GoalCategory,
+  type GoalId,
+} from "./learning-goals";
 import GameDialog from "./minigames";
 import {
   ageBandFor,
@@ -100,6 +109,8 @@ type PlayerState = {
   highContrast: boolean;
   largerText: boolean;
   locale: Locale;
+  goalId: GoalId;
+  goalText: string;
   lastActiveDate: string;
   lastLearningDate: string;
   weekKey: string;
@@ -131,6 +142,8 @@ const initialPlayer: PlayerState = {
   highContrast: false,
   largerText: false,
   locale: "en",
+  goalId: "balanced",
+  goalText: "",
   lastActiveDate: localDateKey(),
   lastLearningDate: "",
   weekKey: startOfWeekKey(),
@@ -144,6 +157,8 @@ function restorePlayer(raw: string): PlayerState {
     ...initialPlayer,
     ...parsed,
     locale: parsed.locale === "ar" ? "ar" : "en",
+    goalId: isGoalId(parsed.goalId) ? parsed.goalId : "balanced",
+    goalText: typeof parsed.goalText === "string" ? parsed.goalText.slice(0, 80) : "",
     streak: parsed.lastLearningDate ? parsed.streak ?? 0 : 0,
     progress: { ...initialPlayer.progress, ...parsed.progress },
     progressByLevel: { ...initialPlayer.progressByLevel, ...parsed.progressByLevel },
@@ -215,12 +230,73 @@ function LanguageToggle({ locale, onChange, compact = false }: { locale: Locale;
   );
 }
 
-function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar: number, locale: Locale) => void }) {
+function GoalPicker({
+  locale,
+  goalId,
+  goalText,
+  onChange,
+  compact = false,
+}: {
+  locale: Locale;
+  goalId: GoalId;
+  goalText: string;
+  onChange: (goalId: GoalId, goalText: string) => void;
+  compact?: boolean;
+}) {
+  const category = goalFor(goalId, locale, goalText).category;
+  const goals = localizedGoals(locale, category);
+  const selectCategory = (nextCategory: GoalCategory) => {
+    onChange(nextCategory === "learn" ? "balanced" : "university", goalText);
+  };
+
+  return (
+    <fieldset className={`goal-picker ${compact ? "compact" : ""}`}>
+      <legend>{tr(locale, "What is your goal?", "ما هدفك؟")}</legend>
+      <div className="goal-category" role="group" aria-label={tr(locale, "Goal type", "نوع الهدف")}>
+        <button type="button" className={category === "learn" ? "active" : ""} aria-pressed={category === "learn"} onClick={() => selectCategory("learn")}>
+          <BookOpen size={17} />
+          <span><strong>{tr(locale, "I want to learn", "أريد أن أتعلم")}</strong><small>{tr(locale, "Choose a skill", "اختر مهارة")}</small></span>
+        </button>
+        <button type="button" className={category === "reach" ? "active" : ""} aria-pressed={category === "reach"} onClick={() => selectCategory("reach")}>
+          <Target size={17} />
+          <span><strong>{tr(locale, "I want to reach", "أريد أن أصل")}</strong><small>{tr(locale, "Choose a dream", "اختر حلماً")}</small></span>
+        </button>
+      </div>
+      <div className="goal-options">
+        {goals.map((goal) => (
+          <button type="button" key={goal.id} className={goalId === goal.id ? "selected" : ""} aria-pressed={goalId === goal.id} onClick={() => onChange(goal.id, goalText)}>
+            <span aria-hidden="true">{goal.id === "reading" && locale === "ar" ? "أب" : goal.icon}</span>
+            <strong>{goal.title}</strong>
+            {!compact && <small>{goal.description}</small>}
+          </button>
+        ))}
+      </div>
+      {goalId === "custom" && (
+        <label className="custom-goal">
+          <span>{tr(locale, "Write your personal goal", "اكتب هدفك الشخصي")}</span>
+          <input
+            value={goalText}
+            onChange={(event) => onChange("custom", event.target.value.slice(0, 80))}
+            maxLength={80}
+            required={!compact}
+            placeholder={tr(locale, "Example: Build my own robot", "مثال: أبني روبوتي الخاص")}
+          />
+        </label>
+      )}
+    </fieldset>
+  );
+}
+
+function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar: number, locale: Locale, goalId: GoalId, goalText: string) => void }) {
   const [name, setName] = useState("");
   const [level, setLevel] = useState("grade5");
   const [avatar, setAvatar] = useState(0);
   const [locale, setLocale] = useState<Locale>(() => typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("ar") ? "ar" : "en");
+  const [step, setStep] = useState<1 | 2>(1);
+  const [goalId, setGoalId] = useState<GoalId>("balanced");
+  const [goalText, setGoalText] = useState("");
   const experience = experienceFor(level, locale);
+  const selectedGoal = goalFor(goalId, locale, goalText);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -229,7 +305,11 @@ function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    onStart(name.trim() || tr(locale, "Explorer", "مستكشف"), level, avatar, locale);
+    if (step === 1) {
+      setStep(2);
+      return;
+    }
+    onStart(name.trim() || tr(locale, "Explorer", "مستكشف"), level, avatar, locale, goalId, goalText.trim());
   };
 
   return (
@@ -243,49 +323,72 @@ function Onboarding({ onStart }: { onStart: (name: string, level: string, avatar
       <section className="welcome-card">
         <div className="welcome-form-panel">
           <div className="welcome-brand-row"><Brand locale={locale} /><LanguageToggle locale={locale} onChange={setLocale} /></div>
-          <p className="eyebrow">{tr(locale, "YOUR WORLD OF LEARNING", "عالمك للتعلّم")}</p>
-          <h1>{tr(locale, "Every school day becomes an adventure.", "كل يوم دراسي يتحول إلى مغامرة.")}</h1>
-          <p className="welcome-copy">{tr(locale, "Learn at your level, make kind friends, play, create, and grow—from preschool to university.", "تعلّم وفق مستواك، وكوّن صداقات لطيفة، والعب وابتكر وتطوّر—من الروضة حتى الجامعة.")}</p>
+          <div className="onboarding-progress" aria-label={tr(locale, `Step ${step} of 2`, `الخطوة ${formatNumber(step, locale)} من ٢`)}>
+            <span className="active"><i /></span><span className={step === 2 ? "active" : ""}><i /></span>
+          </div>
+          <p className="eyebrow">{step === 1 ? tr(locale, "YOUR WORLD OF LEARNING", "عالمك للتعلّم") : tr(locale, "YOUR NORTH STAR", "بوصلة رحلتك")}</p>
+          <h1>{step === 1 ? tr(locale, "Every school day becomes an adventure.", "كل يوم دراسي يتحول إلى مغامرة.") : tr(locale, "Where do you want learning to take you?", "إلى أين تريد أن يقودك التعلّم؟")}</h1>
+          <p className="welcome-copy">{step === 1
+            ? tr(locale, "Learn at your level, make kind friends, play, create, and grow—from preschool to university.", "تعلّم وفق مستواك، وكوّن صداقات لطيفة، والعب وابتكر وتطوّر—من الروضة حتى الجامعة.")
+            : tr(locale, "Choose what you want to learn or the dream you want to reach. School Life will shape your next best step around it.", "اختر ما تريد تعلّمه أو الحلم الذي تريد بلوغه. ستبني الحياة المدرسية خطوتك التالية الأفضل حوله.")}</p>
           <form onSubmit={submit} className="setup-form">
-            <label htmlFor="learner-name">{tr(locale, "What should we call you?", "ما الاسم الذي تحب أن نناديك به؟")}</label>
-            <input id="learner-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder={tr(locale, "Your first name", "اسمك الأول")} autoComplete="given-name" />
+            {step === 1 ? (
+              <>
+                <label htmlFor="learner-name">{tr(locale, "What should we call you?", "ما الاسم الذي تحب أن نناديك به؟")}</label>
+                <input id="learner-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} placeholder={tr(locale, "Your first name", "اسمك الأول")} autoComplete="given-name" />
 
-            <label htmlFor="learning-level">{tr(locale, "Choose your learning level", "اختر مرحلتك التعليمية")}</label>
-            <select id="learning-level" value={level} onChange={(event) => setLevel(event.target.value)}>
-              {levels.map(([value]) => <option value={value} key={value}>{localizedLevelLabel(value, locale)}</option>)}
-            </select>
-            <div className="experience-preview" aria-live="polite">
-              <span>{experience.label}</span>
-              <strong>{experience.world}</strong>
-              <p>{experience.promise}</p>
+                <label htmlFor="learning-level">{tr(locale, "Choose your learning level", "اختر مرحلتك التعليمية")}</label>
+                <select id="learning-level" value={level} onChange={(event) => setLevel(event.target.value)}>
+                  {levels.map(([value]) => <option value={value} key={value}>{localizedLevelLabel(value, locale)}</option>)}
+                </select>
+                <div className="experience-preview" aria-live="polite">
+                  <span>{experience.label}</span>
+                  <strong>{experience.world}</strong>
+                  <p>{experience.promise}</p>
+                </div>
+
+                <fieldset className="avatar-picker">
+                  <legend>{tr(locale, "Pick your explorer", "اختر شخصيتك")}</legend>
+                  <div className="avatar-options">
+                    {avatarFaces.map((face, index) => (
+                      <button key={face} type="button" className={avatar === index ? "selected" : ""} onClick={() => setAvatar(index)} aria-pressed={avatar === index}>
+                        <span>{face}</span><small>{avatarNames[locale][index]}</small>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              </>
+            ) : (
+              <GoalPicker locale={locale} goalId={goalId} goalText={goalText} onChange={(nextGoalId, nextGoalText) => { setGoalId(nextGoalId); setGoalText(nextGoalText); }} />
+            )}
+            <div className="onboarding-actions">
+              {step === 2 && <button className="soft-button" type="button" onClick={() => setStep(1)}>{tr(locale, "Back", "رجوع")}</button>}
+              <button className="primary-button enter-button" type="submit">
+                {step === 1 ? tr(locale, "Continue", "متابعة") : tr(locale, "Start my journey", "ابدأ رحلتي")} <ArrowRight size={19} />
+              </button>
             </div>
-
-            <fieldset className="avatar-picker">
-              <legend>{tr(locale, "Pick your explorer", "اختر شخصيتك")}</legend>
-              <div className="avatar-options">
-                {avatarFaces.map((face, index) => (
-                  <button key={face} type="button" className={avatar === index ? "selected" : ""} onClick={() => setAvatar(index)} aria-pressed={avatar === index}>
-                    <span>{face}</span><small>{avatarNames[locale][index]}</small>
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            <button className="primary-button enter-button" type="submit">
-              {tr(locale, "Enter my school", "ادخل مدرستي")} <ArrowRight size={19} />
-            </button>
           </form>
           <p className="privacy-note"><ShieldCheck size={15} /> {tr(locale, "No account needed. Progress stays on this device.", "لا تحتاج إلى حساب. يبقى تقدمك محفوظاً على هذا الجهاز.")}</p>
         </div>
         <div className="welcome-world-panel">
           <div className="welcome-world-copy">
             <span className="live-chip"><span /> {experience.world.toUpperCase()}</span>
-            <h2>{tr(locale, "One learning journey.", "رحلة تعلّم واحدة.")}<br />{tr(locale, "A distinct experience at every age.", "وتجربة مميزة لكل عمر.")}</h2>
+            <h2>{step === 1
+              ? <>{tr(locale, "One learning journey.", "رحلة تعلّم واحدة.")}<br />{tr(locale, "A distinct experience at every age.", "وتجربة مميزة لكل عمر.")}</>
+              : <>{tr(locale, "A goal makes every step meaningful.", "الهدف يمنح كل خطوة معنى.")}<br />{selectedGoal.title}</>}</h2>
           </div>
-          <div className="welcome-subjects" aria-label={tr(locale, "Learning areas", "مجالات التعلّم")}>
-            <span><strong>∑</strong> {tr(locale, "Mathematics", "الرياضيات")}</span>
-            <span><strong>{locale === "ar" ? "أب" : "Aa"}</strong> {tr(locale, "Reading", "اللغة والقراءة")}</span>
-            <span><strong>⚗</strong> {tr(locale, "Science", "العلوم")}</span>
-          </div>
+          {step === 1 ? (
+            <div className="welcome-subjects" aria-label={tr(locale, "Learning areas", "مجالات التعلّم")}>
+              <span><strong>∑</strong> {tr(locale, "Mathematics", "الرياضيات")}</span>
+              <span><strong>{locale === "ar" ? "أب" : "Aa"}</strong> {tr(locale, "Reading", "اللغة والقراءة")}</span>
+              <span><strong>⚗</strong> {tr(locale, "Science", "العلوم")}</span>
+            </div>
+          ) : (
+            <div className="welcome-goal-card" aria-live="polite">
+              <span aria-hidden="true">{selectedGoal.icon}</span>
+              <div><strong>{selectedGoal.title}</strong><p>{selectedGoal.description}</p></div>
+            </div>
+          )}
         </div>
       </section>
     </main>
@@ -304,9 +407,10 @@ function CampusView({ player, go, openChallenge }: { player: PlayerState; go: (r
     { label: tr(locale, "Visit the Science Dome", "زُر قبة العلوم"), complete: player.subjectWins.science > 0, subject: "science" as Subject },
   ];
   const completed = questItems.filter((item) => item.complete).length;
-  const recommendedSubject = subjectList.reduce((lowest, subject) =>
-    player.progress[subject.id] < player.progress[lowest.id] ? subject : lowest,
-  );
+  const selectedGoal = goalFor(player.goalId, locale, player.goalText);
+  const goalProgress = progressForGoal(player.goalId, player.progress);
+  const recommendedSubjectId = recommendedSubjectForGoal(player.goalId, player.progress);
+  const recommendedSubject = subjectList.find((subject) => subject.id === recommendedSubjectId) ?? subjectList[0];
 
   return (
     <div className="page campus-page">
@@ -371,12 +475,24 @@ function CampusView({ player, go, openChallenge }: { player: PlayerState; go: (r
         </aside>
       </div>
       <section className="quick-path">
-        <div className="quick-path-copy"><span className="path-kicker"><Zap size={15} fill="currentColor" /> {tr(locale, "YOUR NEXT BEST STEP", "خطوتك التالية الأفضل")}</span><h2>{tr(locale, "Keep your learning streak glowing", "حافظ على توهج سلسلة تعلّمك")}</h2><p>{tr(locale, "Ten focused minutes today moves every subject forward.", "عشر دقائق مركزة اليوم تدفع كل مادة إلى الأمام.")}</p></div>
+        <div className="quick-path-copy">
+          <span className="path-kicker"><Target size={15} /> {tr(locale, "MY GOAL", "هدفي")}</span>
+          <h2><span aria-hidden="true">{selectedGoal.icon}</span> {selectedGoal.title}</h2>
+          <p>{selectedGoal.description}</p>
+          <div className="goal-progress">
+            <span><i style={{ width: `${goalProgress}%` }} /></span>
+            <small>{tr(locale, `${goalProgress}% toward this goal`, `${formatNumber(goalProgress, locale)}٪ نحو هذا الهدف`)}</small>
+          </div>
+        </div>
         <div className="path-subjects">
           {subjectList.map((subject) => (
-            <button key={subject.id} onClick={() => openChallenge(subject.id)}>
+            <button key={subject.id} className={subject.id === recommendedSubject.id ? "recommended" : ""} onClick={() => openChallenge(subject.id)}>
               <span className={`subject-glyph ${subject.color}`}>{subject.icon}</span>
-              <span><strong>{subject.title}</strong><small>{tr(locale, `${player.progress[subject.id]}% mastery`, `إتقان ${formatNumber(player.progress[subject.id], locale)}٪`)}</small></span>
+              <span>
+                <strong>{subject.title}</strong>
+                <small>{tr(locale, `${player.progress[subject.id]}% mastery`, `إتقان ${formatNumber(player.progress[subject.id], locale)}٪`)}</small>
+                {subject.id === recommendedSubject.id && <em>{tr(locale, "Best next step", "أفضل خطوة تالية")}</em>}
+              </span>
               <span className="mini-progress"><span style={{ width: `${player.progress[subject.id]}%` }} /></span>
             </button>
           ))}
@@ -603,7 +719,7 @@ function ProfileView({ player, update, reset }: { player: PlayerState; update: (
   ];
   return (
     <div className="page">
-      <SectionHeading eyebrow={tr(locale, "EXPLORER PROFILE", "ملف المستكشف")} title={tr(locale, "Your School Life", "حياتك المدرسية")} copy={tr(locale, "See your journey, change your level, and choose the accessibility settings that help you learn best.", "شاهد رحلتك وغيّر مرحلتك واختر إعدادات الوصول التي تساعدك على التعلّم بصورة أفضل.")} />
+      <SectionHeading eyebrow={tr(locale, "EXPLORER PROFILE", "ملف المستكشف")} title={tr(locale, "Your School Life", "حياتك المدرسية")} copy={tr(locale, "See your journey, shape your goal, change your level, and choose the settings that help you learn best.", "شاهد رحلتك وحدد هدفك وغيّر مرحلتك واختر الإعدادات التي تساعدك على التعلّم بصورة أفضل.")} />
       <div className="profile-layout">
         <section className="profile-identity panel">
           <div className="profile-glow" /><Avatar index={player.avatar} label={player.name} locale={locale} /><h2>{player.name}</h2><p>{localizedLevelLabel(player.level, locale)}</p><span className="profile-title"><Award size={15} /> {tr(locale, "Curious Pathfinder", "رائد فضولي")}</span>
@@ -611,6 +727,10 @@ function ProfileView({ player, update, reset }: { player: PlayerState; update: (
         </section>
         <div className="profile-main">
           <section className="stat-grid">{stats.map(({ label, value, icon: Icon }) => <article key={label}><Icon size={20} /><strong>{formatNumber(value, locale)}</strong><span>{label}</span></article>)}</section>
+          <section className="goal-settings-panel panel">
+            <div className="settings-head"><div><p className="eyebrow">{tr(locale, "MY NORTH STAR", "بوصلة رحلتي")}</p><h2>{tr(locale, "Choose where learning takes you", "اختر إلى أين يقودك التعلّم")}</h2><p>{tr(locale, "Your choice guides the subject School Life recommends next.", "اختيارك يوجّه المادة التي تقترحها الحياة المدرسية في خطوتك التالية.")}</p></div><Target size={25} /></div>
+            <GoalPicker compact locale={locale} goalId={player.goalId} goalText={player.goalText} onChange={(goalId, goalText) => update({ goalId, goalText })} />
+          </section>
           <section className="settings-panel panel"><div className="settings-head"><div><p className="eyebrow">{tr(locale, "LEARNING COMFORT", "راحة التعلّم")}</p><h2>{tr(locale, "Make School Life work for you", "اجعل الحياة المدرسية مناسبة لك")}</h2></div><Accessibility size={25} /></div>
             <div className="language-setting">
               <span><strong>{tr(locale, "Language", "اللغة")}</strong><small>{tr(locale, "Switch the full learning experience", "غيّر لغة تجربة التعلّم كاملة")}</small></span>
@@ -767,9 +887,10 @@ export default function SchoolLife() {
   const updatePlayer = (patch: Partial<PlayerState>) => setPlayer((current) => ({ ...current, ...patch }));
   const go = (nextRoute: RouteName) => { setRoute(nextRoute); setMobileMenu(false); window.scrollTo({ top: 0, behavior: player.reducedMotion ? "auto" : "smooth" }); };
 
-  const start = (name: string, level: string, avatar: number, locale: Locale) => {
-    const next = refreshDailyProgress({ ...initialPlayer, name, level, avatar, locale });
-    setPlayer(next); setHasProfile(true); showToast(tr(locale, `Welcome to ${experienceFor(level, locale).world}, ${name}!`, `مرحباً بك في ${experienceFor(level, locale).world}، ${name}!`));
+  const start = (name: string, level: string, avatar: number, locale: Locale, goalId: GoalId, goalText: string) => {
+    const next = refreshDailyProgress({ ...initialPlayer, name, level, avatar, locale, goalId, goalText });
+    const goal = goalFor(goalId, locale, goalText);
+    setPlayer(next); setHasProfile(true); showToast(tr(locale, `Your journey toward “${goal.title}” starts now!`, `تبدأ الآن رحلتك نحو «${goal.title}»!`));
   };
 
   const completeChallenge = (subject: Subject, score: number, total: number) => {

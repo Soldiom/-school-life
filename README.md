@@ -20,6 +20,8 @@ The app is installable and works offline after its first successful load.
 
 - 15 selectable levels across five genuinely different age experiences
 - Instant English/Arabic switching with a true right-to-left Arabic interface
+- Goal-driven onboarding for both learning targets and future aspirations, including personal goals
+- Goal-aware subject recommendations and visible progress toward each learner's destination
 - 78 adaptive mathematics, language/reading, and science questions in each language
 - Purpose-written Modern Standard Arabic literacy activities, hints, explanations, and read-aloud support
 - Transparent mastery updates based on the learner's latest result
@@ -62,6 +64,7 @@ npm run preview
 | --- | --- |
 | `src/App.tsx` | Product screens, local profile state, rewards, and accessibility settings |
 | `src/learning-engine.ts` | Age experiences, adaptive question selection, mastery, streaks, audio |
+| `src/learning-goals.ts` | Bilingual goals, aspiration pathways, progress, and subject recommendations |
 | `src/arabic-content.ts` | Purpose-written Arabic curriculum across every age band |
 | `src/i18n.ts` | English/Arabic labels, localized product data, and locale helpers |
 | `src/content-packs.ts` | Versioned curriculum extensions and review metadata |

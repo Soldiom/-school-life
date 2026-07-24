@@ -79,7 +79,7 @@ h1, h2, h3, p { margin-top: 0; }
 .spark-b { right: 8%; bottom: 14%; animation-delay: -1.3s; }
 .welcome-card { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(440px, .86fr) minmax(540px, 1.14fr); width: min(1240px, 100%); min-height: min(780px, calc(100dvh - 68px)); overflow: hidden; border: 1px solid rgba(255,255,255,.7); border-radius: 34px; background: rgba(255,255,255,.74); box-shadow: 0 36px 100px rgba(48,27,96,.25), inset 0 1px white; backdrop-filter: blur(18px); }
 .welcome-form-panel { display: flex; flex-direction: column; padding: clamp(42px, 5vw, 70px); background: rgba(255,252,247,.9); }
-.welcome-form-panel > .eyebrow { margin-top: 50px; }
+.welcome-form-panel > .eyebrow { margin-top: 14px; }
 .welcome-form-panel h1 { max-width: 510px; margin-bottom: 18px; font-family: var(--display); font-size: clamp(42px, 4.3vw, 64px); line-height: .98; letter-spacing: -.045em; }
 .welcome-copy { max-width: 500px; margin-bottom: 30px; color: var(--ink-soft); font-size: 16px; line-height: 1.65; }
 .setup-form { display: grid; gap: 10px; }
@@ -96,6 +96,35 @@ h1, h2, h3, p { margin-top: 0; }
 .avatar-options button.selected { border-color: var(--violet); background: var(--violet-pale); box-shadow: 0 0 0 2px rgba(118,82,231,.12); }
 .enter-button { margin-top: 9px; height: 51px; }
 .privacy-note { display: flex; align-items: center; gap: 7px; margin: 16px 0 0; color: #80798f; font-size: 11px; }
+.onboarding-progress { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; width: 90px; margin-top: 34px; }
+.onboarding-progress span { height: 4px; overflow: hidden; border-radius: 5px; background: #e3dfea; }
+.onboarding-progress i { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--violet), #a983f2); transition: width .28s ease; }
+.onboarding-progress span.active i { width: 100%; }
+.onboarding-actions { display: flex; align-items: center; gap: 9px; }
+.onboarding-actions .enter-button { flex: 1; }
+.onboarding-actions .soft-button { min-width: 92px; margin-top: 9px; }
+.goal-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.goal-picker > legend { margin-bottom: 10px; color: #413a5c; font-size: 12px; font-weight: 780; }
+.goal-category { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 9px; }
+.goal-category > button { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; min-height: 53px; padding: 8px 10px; border: 1px solid rgba(60,40,105,.12); border-radius: 13px; cursor: pointer; color: #716a80; background: white; text-align: left; transition: .18s ease; }
+.goal-category > button:hover { border-color: rgba(99,64,195,.34); }
+.goal-category > button.active { border-color: rgba(118,82,231,.48); color: var(--violet-deep); background: var(--violet-pale); box-shadow: 0 0 0 2px rgba(118,82,231,.08); }
+.goal-category > button > span { display: grid; gap: 2px; }
+.goal-category strong { font-size: 11px; }
+.goal-category small { color: #8b8497; font-size: 9px; }
+.goal-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.goal-options > button { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 3px 9px; min-height: 69px; padding: 9px 11px; border: 1px solid rgba(60,40,105,.11); border-radius: 13px; cursor: pointer; color: var(--ink); background: rgba(255,255,255,.86); text-align: left; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+.goal-options > button:hover { transform: translateY(-2px); border-color: rgba(99,64,195,.32); }
+.goal-options > button.selected { border-color: var(--violet); background: linear-gradient(145deg, #f5f1ff, #ece4ff); box-shadow: 0 0 0 2px rgba(118,82,231,.08); }
+.goal-options > button > span { grid-row: 1 / 3; display: grid; width: 32px; height: 32px; place-items: center; border-radius: 9px; background: #f2edff; font-size: 17px; font-weight: 850; }
+.goal-options strong { font-size: 10px; line-height: 1.25; }
+.goal-options small { color: #817a8f; font-size: 8px; line-height: 1.3; }
+.custom-goal { display: grid; gap: 7px; margin-top: 9px; color: #413a5c; font-size: 11px; font-weight: 750; }
+.custom-goal input { width: 100%; height: 47px; border: 1px solid rgba(60,40,105,.16); border-radius: 13px; padding: 0 14px; color: var(--ink); background: white; }
+.welcome-goal-card { position: absolute; z-index: 2; right: 34px; bottom: 34px; left: 34px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px; padding: 17px 18px; border: 1px solid rgba(255,255,255,.22); border-radius: 17px; background: rgba(25,14,61,.68); backdrop-filter: blur(14px); }
+.welcome-goal-card > span { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 14px; background: rgba(255,255,255,.12); font-size: 25px; }
+.welcome-goal-card strong { font-family: var(--display); font-size: 17px; }
+.welcome-goal-card p { margin: 4px 0 0; color: rgba(255,255,255,.68); font-size: 11px; line-height: 1.45; }
 .welcome-world-panel { position: relative; min-height: 580px; overflow: hidden; padding: 45px; color: white; background: linear-gradient(to bottom, rgba(26,15,63,.15), rgba(26,15,63,.38)), url('/enchanted-campus.webp') center/cover no-repeat, #5b3ea8; }
 .welcome-world-panel::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(24,12,58,.35), transparent 32%, transparent 60%, rgba(24,12,58,.7)); pointer-events: none; }
 .welcome-world-copy { position: relative; z-index: 1; }
@@ -216,16 +245,23 @@ h1, h2, h3, p { margin-top: 0; }
 .quick-path { display: grid; grid-template-columns: minmax(240px, .72fr) 1.28fr; gap: 24px; margin-top: 18px; padding: 22px 24px; border: 1px solid rgba(255,255,255,.12); border-radius: 24px; color: white; background: radial-gradient(circle at 12% 20%, rgba(146,102,240,.28), transparent 32%), linear-gradient(125deg, #20134a, #2b1b5a); box-shadow: var(--shadow-md); }
 .path-kicker { display: inline-flex; align-items: center; gap: 6px; color: #f7cb69; font-size: 9px; font-weight: 850; letter-spacing: .13em; }
 .quick-path-copy h2 { margin: 8px 0 4px; font-family: var(--display); font-size: 20px; }
+.quick-path-copy h2 > span { margin-inline-end: 4px; font-family: var(--sans); }
 .quick-path-copy p { margin: 0; color: rgba(255,255,255,.58); font-size: 10px; line-height: 1.5; }
+.goal-progress { display: grid; grid-template-columns: minmax(100px, 1fr) auto; align-items: center; gap: 9px; margin-top: 12px; }
+.goal-progress > span { overflow: hidden; height: 5px; border-radius: 5px; background: rgba(255,255,255,.13); }
+.goal-progress > span > i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #f3bd4f, #ffe5a0); }
+.goal-progress small { color: rgba(255,255,255,.72); font-size: 9px; white-space: nowrap; }
 .path-subjects { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .path-subjects button { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; min-height: 70px; padding: 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; cursor: pointer; color: white; background: rgba(255,255,255,.06); text-align: left; transition: .18s ease; }
 .path-subjects button:hover { background: rgba(255,255,255,.11); transform: translateY(-2px); }
+.path-subjects button.recommended { border-color: rgba(246,189,75,.58); background: linear-gradient(145deg, rgba(246,189,75,.14), rgba(255,255,255,.07)); box-shadow: inset 0 0 0 1px rgba(246,189,75,.08); }
 .subject-glyph { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 11px; color: white; background: var(--violet); font-family: var(--display); font-weight: 850; }
 .subject-glyph.mint { background: #3ea982; }
 .subject-glyph.blue { background: #3b85d0; }
 .path-subjects button > span:nth-child(2) { display: grid; gap: 3px; min-width: 0; }
 .path-subjects strong { font-size: 10px; }
 .path-subjects small { color: rgba(255,255,255,.55); font-size: 8px; }
+.path-subjects em { width: fit-content; padding: 3px 6px; border-radius: 6px; color: #38225f; background: #f6ca69; font-size: 7px; font-style: normal; font-weight: 850; }
 .mini-progress { grid-column: 1 / 3; overflow: hidden; width: 100%; height: 3px; border-radius: 3px; background: rgba(255,255,255,.12); }
 .mini-progress > span { display: block; height: 100%; border-radius: inherit; background: #f5c85f; }
 
@@ -456,6 +492,12 @@ h1, h2, h3, p { margin-top: 0; }
 .stat-grid article { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; min-height: 90px; padding: 16px; border: 1px solid var(--line); border-radius: 17px; background: white; box-shadow: var(--shadow-sm); }
 .stat-grid svg { grid-row: 1 / 3; color: var(--violet); }
 .stat-grid strong { font-size: 18px; }.stat-grid span { color: #807a8d; font-size: 8px; }
+.goal-settings-panel { padding: 24px; }
+.goal-settings-panel .settings-head > div > p:last-child { max-width: 620px; margin: 6px 0 0; color: #777184; font-size: 11px; line-height: 1.5; }
+.goal-picker.compact { margin-top: 17px; }
+.goal-picker.compact .goal-options { grid-template-columns: repeat(3, 1fr); }
+.goal-picker.compact .goal-options > button { min-height: 66px; }
+.goal-picker.compact .goal-options > button > span { grid-row: auto; }
 .settings-panel { padding: 24px; }
 .language-setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 17px; padding: 12px 14px; border: 1px solid rgba(118, 82, 231, .17); border-radius: 14px; background: var(--violet-pale); }
 .language-setting > span { display: grid; gap: 3px; }
@@ -708,6 +750,8 @@ h1, h2, h3, p { margin-top: 0; }
 .hotspot-label strong { font-size: 14px; }
 .quest-list strong, .friend-mini-list strong, .path-subjects strong { font-size: 13px; }
 .quest-list small, .friend-mini-list small, .path-subjects small { font-size: 11px; }
+.goal-category strong, .goal-options strong { font-size: 12px; }
+.goal-category small, .goal-options small, .goal-progress small { font-size: 10px; }
 .quick-path-copy p, .subject-card > p:not(.eyebrow), .kindness-banner p:not(.eyebrow),
 .bus-hero-copy p, .route-card > p:not(.eyebrow), .reward-cta p:not(.eyebrow) {
   font-size: 13px;
@@ -911,8 +955,11 @@ html[data-motion="reduced"] * { animation-duration: .01ms !important; animation-
   .welcome-subjects > span { justify-content: center; padding: 9px 5px; font-size: 0; }
   .welcome-subjects strong { font-size: 14px; }
   .welcome-form-panel { padding: 31px 22px 40px; }
-  .welcome-form-panel > .eyebrow { margin-top: 29px; }
+  .welcome-form-panel > .eyebrow { margin-top: 12px; }
   .welcome-form-panel h1 { font-size: 42px; }
+  .onboarding-progress { margin-top: 24px; }
+  .welcome-goal-card { right: 18px; bottom: 18px; left: 18px; }
+  .goal-picker.compact .goal-options { grid-template-columns: 1fr 1fr; }
   .world-card { min-height: 470px; background-position: center; }
   .hotspot-label { min-width: 103px; padding: 7px 8px; }
   .hotspot-label strong { font-size: 12px; }
@@ -959,6 +1006,10 @@ html[data-motion="reduced"] * { animation-duration: .01ms !important; animation-
   .reward-stats { grid-template-columns: repeat(3, 1fr); width: 100%; }
   .reward-stats span { padding-inline: 7px; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
+  .goal-options { grid-template-columns: 1fr; }
+  .goal-picker.compact .goal-options { grid-template-columns: 1fr 1fr; }
+  .goal-category { grid-template-columns: 1fr; }
+  .welcome-goal-card > span { width: 42px; height: 42px; font-size: 22px; }
   .challenge-head, .game-dialog-head, .mission-head { align-items: flex-start; min-height: 175px; padding: 25px 53px 20px 20px; }
   .challenge-icon, .game-dialog-head > span, .mini-bus { width: 50px; height: 50px; border-radius: 15px; font-size: 20px; }
   .challenge-head h2, .game-dialog-head h2, .mission-head h2 { font-size: 21px; }
@@ -996,6 +1047,9 @@ html[dir="rtl"] .profile-chip,
 html[dir="rtl"] .resources button,
 html[dir="rtl"] .quest-list button,
 html[dir="rtl"] .path-subjects button,
+html[dir="rtl"] .goal-category > button,
+html[dir="rtl"] .goal-options > button,
+html[dir="rtl"] .custom-goal,
 html[dir="rtl"] .setting-row,
 html[dir="rtl"] .answer-grid button,
 html[dir="rtl"] .hotspot-label,
@@ -1016,6 +1070,8 @@ html[dir="rtl"] .mission-head { padding: 25px 27px 25px 70px; }
 html[dir="rtl"] .challenge-stars,
 html[dir="rtl"] .mission-head > span:last-child { margin-right: auto; margin-left: 0; }
 html[dir="rtl"] .mission-route span:not(:last-child)::after { right: 30px; left: auto; }
+html[dir="rtl"] .onboarding-progress i,
+html[dir="rtl"] .goal-progress > span > i { margin-right: 0; margin-left: auto; }
 html[dir="rtl"] .switch b { right: 3px; left: auto; }
 html[dir="rtl"] .switch.on b { transform: translateX(-15px); }
 html[dir="rtl"] .lucide-arrow-right,

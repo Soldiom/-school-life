@@ -10,6 +10,13 @@ import {
   refreshDailyProgress,
   startOfWeekKey,
 } from "../src/learning-engine";
+import {
+  goalFor,
+  isGoalId,
+  localizedGoals,
+  progressForGoal,
+  recommendedSubjectForGoal,
+} from "../src/learning-goals";
 import { levels, type Subject } from "../src/school-data";
 
 const subjects: Subject[] = ["math", "reading", "science"];
@@ -119,6 +126,32 @@ describe("progress calendar", () => {
       streak: 5,
     });
     expect(recordLearningDay({ lastLearningDate: "2026-01-12", streak: 5 }, now).streak).toBe(5);
+  });
+});
+
+describe("learner goals", () => {
+  it("offers learning goals and future aspirations in both languages", () => {
+    const english = localizedGoals("en");
+    const arabic = localizedGoals("ar");
+
+    expect(english).toHaveLength(11);
+    expect(english.filter((goal) => goal.category === "learn")).toHaveLength(5);
+    expect(english.filter((goal) => goal.category === "reach")).toHaveLength(6);
+    expect(arabic).toHaveLength(english.length);
+    expect(goalFor("engineer", "ar").title).toBe("أصبح مهندساً");
+    expect(goalFor("custom", "en", "Build a clean-energy company").title).toBe("Build a clean-energy company");
+    expect(isGoalId("scientist")).toBe(true);
+    expect(isGoalId("unknown")).toBe(false);
+  });
+
+  it("uses the goal to choose the most useful next subject and show progress", () => {
+    const progress = { math: 64, reading: 48, science: 20 };
+
+    expect(recommendedSubjectForGoal("math", progress)).toBe("math");
+    expect(recommendedSubjectForGoal("doctor", progress)).toBe("science");
+    expect(recommendedSubjectForGoal("balanced", progress)).toBe("science");
+    expect(progressForGoal("engineer", progress)).toBe(42);
+    expect(progressForGoal("reading", progress)).toBe(48);
   });
 });
 
