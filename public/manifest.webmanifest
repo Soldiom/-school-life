@@ -1,0 +1,17 @@
+{
+  "name": "School Life — Enchanted Campus",
+  "short_name": "School Life",
+  "description": "A playful learning world from preschool through university.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8f6fc",
+  "theme_color": "#19113f",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
