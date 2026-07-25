@@ -92,7 +92,7 @@ Read the project policies before deploying to children:
 
 ## Deployment
 
-Every push to `main` runs quality checks and deploys `dist/` through `.github/workflows/deploy-pages.yml`. In the GitHub repository, configure **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+Every push to `main` runs quality checks through `.github/workflows/deploy-pages.yml` and force-pushes the built `dist/` output to the `gh-pages` branch. GitHub activates Pages for public repositories automatically when a `gh-pages` branch appears; if the site does not come up after the first deployment, confirm **Settings → Pages → Build and deployment → Source: Deploy from a branch → `gh-pages`**.
 
 ## License
 
